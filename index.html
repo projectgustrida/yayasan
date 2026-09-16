@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Laporan Keuangan Yayasan</title>
+
+    <!-- Google Font: Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Poppins', 'sans-serif'] },
+                    colors: {
+                        primary: '#059669',
+                        'primary-dark': '#047857',
+                        'primary-light': '#10b981',
+                        secondary: '#d97706'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Chart.js & SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- CSS Modular -->
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+</head>
+
+<body>
+
+    <!-- Bar Pengalih Tampilan -->
+    <div class="top-bar-switcher no-print bg-emerald-900 text-white text-xs py-1.5 px-4 flex justify-between items-center z-50">        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-mosque text-emerald-400 text-sm"></i>
+            <span class="font-semibold tracking-wide">Sistem Informasi Keuangan Yayasan</span>
+        </div>
+        <div class="flex items-center gap-2 sm:gap-3">
+            <button onclick="window.App.syncFromSupabase(true)" id="btn-cloud-sync" title="Sinkronkan Transaksi Cloud"
+                class="bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100 px-2.5 py-1 rounded-full text-xs font-medium transition flex items-center gap-1.5 shadow-sm border border-emerald-700">
+                <i class="fa-solid fa-arrows-rotate text-[10px]" id="cloud-sync-icon"></i>
+                <span id="cloud-sync-text" class="hidden sm:inline">Sync</span>
+            </button>
+            <div id="cloud-badge-top"
+                class="flex items-center gap-1.5 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-800 text-emerald-200">
+                <span class="w-2 h-2 rounded-full bg-gray-400" id="cloud-dot"></span>
+                <span id="cloud-status-text">Lokal</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <div id="user-badge" class="px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm border bg-emerald-800/90 border-emerald-500 text-emerald-100">
+                    <i class="fa-solid fa-user text-[10px]" id="role-icon"></i>
+                    <span id="user-name-text" class="max-w-[80px] sm:max-w-none truncate">Admin</span>
+                </div>
+                <button onclick="window.App.handleLogout()" title="Keluar"
+                    class="w-7 h-7 rounded-full bg-red-500/80 hover:bg-red-600 text-white flex items-center justify-center transition shadow-sm border border-red-400">
+                    <i class="fa-solid fa-right-from-bracket text-[10px]"></i>
+                </button>
+            </div>
+            <span class="hidden sm:inline text-emerald-200" id="current-date-badge"></span>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- LOGIN SCREEN (Muncul di awal)                  -->
+    <!-- ============================================== -->
+    <div id="login-screen" class="login-screen">
+    <div class="login-card">
+        <!-- Header -->
+        <div class="login-header">
+        <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mx-auto mb-3 text-3xl shadow-lg">
+            <i class="fa-solid fa-hand-holding-dollar"></i>
+        </div>
+        <h1 class="text-xl font-bold tracking-tight">Sistem Keuangan Yayasan</h1>
+        <p class="text-xs text-emerald-100 mt-1">Silakan masuk untuk melanjutkan</p>
+        </div>
+
+        <!-- Body -->
+        <div class="login-body space-y-4">
+        <!-- Tab Switcher -->
+        <div class="flex p-1 bg-gray-100 rounded-xl gap-1">
+            <button type="button" id="login-tab-admin" class="login-tab-btn active" onclick="window.App.switchLoginTab('admin')">
+            <i class="fa-solid fa-user-shield mr-1"></i> Admin
+            </button>
+            <button type="button" id="login-tab-jamaah" class="login-tab-btn" onclick="window.App.switchLoginTab('jamaah')">
+            <i class="fa-solid fa-eye mr-1"></i> Jamaah
+            </button>
+        </div>
+
+        <!-- Form Admin Login -->
+        <form id="login-form-admin" onsubmit="window.App.handleAdminLogin(event)" class="space-y-3">
+            <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Username</label>
+            <div class="relative">
+                <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                <input type="text" id="login-username" required autocomplete="username" placeholder="Masukkan username"
+                class="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:bg-white transition">
+            </div>
+            </div>
+            <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+            <div class="relative">
+                <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                <input type="password" id="login-password" required autocomplete="current-password" placeholder="Masukkan password"
+                class="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:bg-white transition">
+            </div>
+            </div>
+            <div id="login-error" class="hidden text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 flex items-center gap-2">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span id="login-error-text"></span>
+            </div>
+            <button type="submit" id="btn-login-admin"
+            class="w-full bg-primary hover:bg-primary-dark text-white font-bold py-2.5 rounded-xl transition shadow-md shadow-primary/30 text-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-right-to-bracket"></i> Masuk sebagai Admin
+            </button>
+            <p class="text-[10px] text-gray-400 text-center pt-1">
+            Default: <b>admin</b> / <b>admin123</b>
+            </p>
+        </form>
+
+        <!-- Form Jamaah Login -->
+        <form id="login-form-jamaah" class="space-y-3 hidden-view">
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+            <div class="flex items-start gap-2">
+                <i class="fa-solid fa-circle-info text-blue-500 mt-0.5"></i>
+                <div>
+                <p class="font-semibold mb-1">Mode Transparansi Jamaah</p>
+                <p class="text-[11px] text-blue-700">Pilih akun jamaah Anda untuk melihat laporan keuangan secara transparan. Anda dapat mencetak dan mengunduh laporan, namun tidak dapat mengubah data.</p>
+                </div>
+            </div>
+            </div>
+            <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Pilih Akun Jamaah</label>
+            <select id="login-jamaah-select" required
+                class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary">
+                <option value="">-- Pilih akun Anda --</option>
+            </select>
+            </div>
+            <div id="jamaah-login-error" class="hidden text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 flex items-center gap-2">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span id="jamaah-login-error-text"></span>
+            </div>
+            <button type="submit" id="btn-login-jamaah" onclick="window.App.handleJamaahLogin(event)"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition shadow-md shadow-blue-500/30 text-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-eye"></i> Masuk sebagai Jamaah
+            </button>
+            <p class="text-[10px] text-gray-400 text-center pt-1">
+            Belum ada akun? Minta admin mendaftarkan Anda.
+            </p>
+        </form>
+
+        <!-- Loading indicator -->
+        <div id="login-loading" class="hidden-view text-center py-3">
+            <i class="fa-solid fa-spinner fa-spin text-primary text-xl"></i>
+            <p class="text-xs text-gray-500 mt-2">Menghubungkan ke database...</p>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Container Utama -->
+    <div class="app-shell phone-mode" id="app-container">
+
+        <!-- HEADER KOP SURAT (PRINT ONLY) -->
+        <div class="print-only p-6 border-b-2 border-gray-800 text-center mb-6">
+            <h2 class="text-2xl font-bold uppercase tracking-wider text-gray-900" id="print-kop-name">YAYASAN BINA UMMAT
+            </h2>
+            <p class="text-xs text-gray-700 mt-1" id="print-kop-subtitle">Lembaga Sosial, Pendidikan, dan Kesejahteraan
+                Ummat</p>
+            <p class="text-[11px] text-gray-600 mt-0.5" id="print-kop-sk">SK Kemenkumham RI: AHU-0012345.AH.01.04.Tahun
+                2021</p>
+            <p class="text-[11px] text-gray-600" id="print-kop-address">Jl. Damai Sejahtera No. 12, Kel. Harapan, Kec.
+                Berkah</p>
+        </div>
+
+        <!-- Header Aplikasi -->
+        <header
+            class="pt-5 pb-4 px-6 bg-white flex justify-between items-center z-20 sticky top-0 border-b border-gray-100 shadow-sm no-print">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-primary to-emerald-400 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-emerald-500/20">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xs text-gray-400 font-medium">Buku Kas & Laporan</h1>
+                        <span id="header-role-badge" class="text-[10px] px-2 py-0.5 rounded-full font-bold"></span>
+                    </div>
+                    <h2 class="text-base font-bold text-gray-800 tracking-tight" id="header-org-name">Yayasan Bina Ummat
+                    </h2>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="window.App.handleHeaderSettingsClick()" title="Pengaturan"
+                    class="admin-only w-10 h-10 rounded-xl bg-gray-50 hover:bg-emerald-50 hover:text-primary text-gray-600 flex items-center justify-center transition border border-gray-100 shadow-sm">
+                    <i class="fa-solid fa-sliders text-sm"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="scrollable-content px-5 pt-4" id="main-content">
+
+            <!-- VIEW: BERANDA -->
+            <div id="view-home" class="space-y-6">
+                <div
+                    class="jamaah-only bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-eye text-base"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-blue-900">Mode Transparansi Jamaah</p>
+                            <p class="text-[11px] text-blue-700">Anda dapat memantau saldo, mutasi, dan seluruh laporan
+                                keuangan secara transparan.</p>
+                        </div>
+                    </div>
+                    <button onclick="window.App.openAdminLoginModal()" 
+                        class="admin-only bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition shrink-0 shadow-sm flex items-center gap-1.5">                        <i class="fa-solid fa-lock-open text-[11px]"></i> Masuk Admin
+                    </button>
+                </div>
+
+                <div
+                    class="bg-gradient-to-br from-emerald-600 via-primary to-emerald-800 rounded-3xl p-6 text-white shadow-xl shadow-emerald-700/20 relative overflow-hidden">
+                    <div
+                        class="absolute -right-8 -top-8 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none">
+                    </div>
+                    <div
+                        class="absolute -left-8 -bottom-8 w-28 h-28 bg-emerald-400/20 rounded-full blur-xl pointer-events-none">
+                    </div>
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <span
+                            class="text-xs uppercase tracking-wider text-emerald-100 font-semibold bg-white/15 px-3 py-1 rounded-full backdrop-blur-sm">Kas
+                            Yayasan Terkini</span>
+                        <span class="text-xs text-emerald-100 font-medium" id="dashboard-period-label">Sep 2026</span>
+                    </div>
+                    <h3 class="text-3xl font-extrabold mb-5 tracking-tight relative z-10" id="display-balance">Rp 0</h3>
+                    <div class="grid grid-cols-2 gap-3 pt-3 border-t border-emerald-500/40 relative z-10">
+                        <div class="flex items-center gap-2.5">
+                            <div
+                                class="w-9 h-9 rounded-xl bg-emerald-500/30 flex items-center justify-center backdrop-blur-sm">
+                                <i class="fa-solid fa-arrow-down text-emerald-200 text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-emerald-200 font-medium">Pemasukan</p>
+                                <p class="text-sm font-bold tracking-tight" id="display-income">Rp 0</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <div
+                                class="w-9 h-9 rounded-xl bg-red-500/30 flex items-center justify-center backdrop-blur-sm">
+                                <i class="fa-solid fa-arrow-up text-red-200 text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-emerald-200 font-medium">Pengeluaran</p>
+                                <p class="text-sm font-bold tracking-tight" id="display-expense">Rp 0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                            <i class="fa-solid fa-wallet text-primary"></i> Saldo Kas & Bank
+                        </h4>
+                        <button type="button" onclick="window.App.openAddAccountModal()" 
+                            class="admin-only bg-emerald-50 hover:bg-emerald-100 text-primary border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-plus text-[11px]"></i> Tambah Akun
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="accounts-cards-container"></div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <button onclick="window.App.openAddModal('income')"
+                        class="p-3.5 bg-emerald-50 hover:bg-emerald-100 rounded-2xl flex flex-col items-center gap-1.5 text-primary transition border border-emerald-100 shadow-sm">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center text-lg shadow-sm">
+                            <i class="fa-solid fa-hand-holding-dollar"></i>
+                        </div>
+                        <span class="text-xs font-semibold">Pemasukan</span>
+                    </button>
+                    <button onclick="window.App.openAddModal('expense')"
+                        class="p-3.5 bg-red-50 hover:bg-red-100 rounded-2xl flex flex-col items-center gap-1.5 text-red-600 transition border border-red-100 shadow-sm">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-white text-red-500 flex items-center justify-center text-lg shadow-sm">
+                            <i class="fa-solid fa-file-invoice-dollar"></i>
+                        </div>
+                        <span class="text-xs font-semibold">Pengeluaran</span>
+                    </button>
+                    <button onclick="window.App.switchTab('reports')"
+                        class="p-3.5 bg-amber-50 hover:bg-amber-100 rounded-2xl flex flex-col items-center gap-1.5 text-amber-700 transition border border-amber-100 shadow-sm">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-white text-amber-600 flex items-center justify-center text-lg shadow-sm">
+                            <i class="fa-solid fa-file-pdf"></i>
+                        </div>
+                        <span class="text-xs font-semibold">Laporan BKU</span>
+                    </button>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-simple text-primary"></i> Alokasi Dana Program
+                        </h4>
+                        <span class="text-[11px] text-gray-400">Tahun Berjalan</span>
+                    </div>
+                    <div class="h-44 flex items-center justify-center">
+                        <canvas id="miniExpenseChart"></canvas>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-sm font-bold text-gray-800">Transaksi Terkini</h4>
+                        <button onclick="window.App.switchTab('history')"
+                            class="text-xs font-semibold text-primary hover:underline">
+                            Lihat Semua <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-3" id="recent-transactions"></div>
+                </div>
+            </div>
+
+            <!-- VIEW: RIWAYAT -->
+            <div id="view-history" class="hidden-view space-y-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">Riwayat Mutasi Kas</h3>
+                        <p class="text-xs text-gray-400">Kelola dan telusuri seluruh catatan keuangan</p>
+                    </div>
+                       <button onclick="window.App.openAddModal()" 
+                            class="admin-only bg-primary hover:bg-primary-dark text-white text-xs font-semibold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition">
+                        <i class="fa-solid fa-plus"></i> Catat Baru
+                    </button>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                    <div class="relative">
+                        <i
+                            class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                        <input type="text" id="filter-search" oninput="window.App.applyHistoryFilters()"
+                            placeholder="Cari keterangan, kuitansi, atau nama donatur..."
+                            class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-primary focus:bg-white transition">
+                    </div>
+                    <div class="flex p-1 bg-gray-100 rounded-xl">
+                        <button class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-white shadow-sm text-gray-800"
+                            onclick="window.App.setHistoryTypeFilter('all', this)">Semua</button>
+                        <button class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-gray-500"
+                            onclick="window.App.setHistoryTypeFilter('income', this)">Pemasukan</button>
+                        <button class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-gray-500"
+                            onclick="window.App.setHistoryTypeFilter('expense', this)">Pengeluaran</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="filter-account" onchange="window.App.applyHistoryFilters()"
+                            class="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 focus:outline-none focus:border-primary">
+                            <option value="">Semua Akun Kas/Bank</option>
+                        </select>
+                        <select id="filter-category" onchange="window.App.applyHistoryFilters()"
+                            class="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 focus:outline-none focus:border-primary">
+                            <option value="">Semua Kategori</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div
+                    class="bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-200/60 flex justify-between items-center text-xs">
+                    <span class="text-gray-500" id="history-count-label">0 Transaksi ditemukan</span>
+                    <span class="font-bold text-gray-800" id="history-total-label">Total: Rp 0</span>
+                </div>
+
+                <div class="space-y-3" id="all-transactions"></div>
+            </div>
+
+            <!-- VIEW: LAPORAN -->
+            <div id="view-reports" class="hidden-view space-y-5">
+                <div class="flex justify-between items-center no-print">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">Laporan Keuangan Yayasan</h3>
+                        <p class="text-xs text-gray-400">Standar Pembukuan, Buku Kas Umum & Realisasi</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3 no-print">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="report-period-preset" onchange="window.App.handlePeriodPresetChange()"
+                            class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:border-primary">
+                            <option value="this_month">Bulan Ini</option>
+                            <option value="last_month">Bulan Lalu</option>
+                            <option value="this_year" selected>Tahun Ini (2026)</option>
+                            <option value="custom">Rentang Tanggal Kustom</option>
+                        </select>
+                        <div id="custom-date-range" class="hidden flex items-center gap-2">
+                            <input type="date" id="report-start-date"
+                                class="px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs">
+                            <span class="text-xs text-gray-400">s/d</span>
+                            <input type="date" id="report-end-date"
+                                class="px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs">
+                        </div>
+                        <select id="report-account-filter" onchange="window.App.generateReports()"
+                            class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:border-primary">
+                            <option value="">Semua Akun Kas/Bank</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2 pt-1 border-t border-gray-100">
+                        <button onclick="window.App.printReport()"
+                            class="flex-1 bg-primary hover:bg-primary-dark text-white text-xs font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition">
+                            <i class="fa-solid fa-print"></i> Cetak Resmi / PDF
+                        </button>
+                        <button onclick="window.App.exportToExcel()"
+                            class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition">
+                            <i class="fa-solid fa-file-excel"></i> Unduh Excel (.xlsx)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex border-b border-gray-200 no-print">
+                    <button id="tab-btn-bku" onclick="window.App.switchReportSubTab('bku')"
+                        class="py-2.5 px-4 text-xs font-bold border-b-2 border-primary text-primary transition">Buku Kas
+                        Umum (BKU)</button>
+                    <button id="tab-btn-activity" onclick="window.App.switchReportSubTab('activity')"
+                        class="py-2.5 px-4 text-xs font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition">Laporan
+                        Aktivitas</button>
+                    <button id="tab-btn-position" onclick="window.App.switchReportSubTab('position')"
+                        class="py-2.5 px-4 text-xs font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition">Posisi
+                        Kas & Bank</button>
+                </div>
+
+                <!-- BKU -->
+                <div id="subreport-bku" class="space-y-4">
+                    <div class="text-center pb-2">
+                        <h4 class="text-base font-bold text-gray-800 uppercase tracking-wide">BUKU KAS UMUM (BKU)</h4>
+                        <p class="text-xs text-gray-500" id="bku-period-text">Periode: Tahun 2026</p>
+                    </div>
+                    <div
+                        class="grid grid-cols-3 gap-2 bg-gray-50 p-3 rounded-2xl border border-gray-200/70 text-center">
+                        <div>
+                            <p class="text-[10px] text-gray-500 font-medium">Total Penerimaan</p>
+                            <p class="text-xs font-bold text-primary" id="bku-sum-income">Rp 0</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-gray-500 font-medium">Total Pengeluaran</p>
+                            <p class="text-xs font-bold text-red-600" id="bku-sum-expense">Rp 0</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-gray-500 font-medium">Saldo Akhir Periode</p>
+                            <p class="text-xs font-bold text-gray-900" id="bku-sum-balance">Rp 0</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto bg-white rounded-2xl border border-gray-200 shadow-sm">
+                        <table class="w-full text-left text-xs table-print">
+                            <thead class="bg-gray-100 text-gray-700 font-semibold border-b border-gray-200">
+                                <tr>
+                                    <th class="py-2.5 px-3 text-center w-8">No</th>
+                                    <th class="py-2.5 px-3 w-24">Tanggal</th>
+                                    <th class="py-2.5 px-3 w-24">No. Bukti</th>
+                                    <th class="py-2.5 px-3">Uraian / Keterangan</th>
+                                    <th class="py-2.5 px-3 text-right">Penerimaan (Rp)</th>
+                                    <th class="py-2.5 px-3 text-right">Pengeluaran (Rp)</th>
+                                    <th class="py-2.5 px-3 text-right">Saldo (Rp)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bku-table-body" class="divide-y divide-gray-100 text-gray-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Aktivitas -->
+                <div id="subreport-activity" class="hidden-view space-y-4">
+                    <div class="text-center pb-2">
+                        <h4 class="text-base font-bold text-gray-800 uppercase tracking-wide">LAPORAN AKTIVITAS</h4>
+                        <p class="text-xs text-gray-500" id="activity-period-text">Periode: Tahun 2026</p>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm space-y-5">
+                        <div>
+                            <h5
+                                class="text-xs font-bold text-primary uppercase tracking-wider pb-1 border-b border-primary/20 flex justify-between">
+                                <span>I. Penerimaan Yayasan (ZISWAF & Donasi)</span>
+                                <span id="act-total-income-top" class="text-gray-800 font-bold">Rp 0</span>
+                            </h5>
+                            <div class="space-y-1.5 pt-2 text-xs" id="act-income-breakdown"></div>
+                        </div>
+                        <div>
+                            <h5
+                                class="text-xs font-bold text-red-600 uppercase tracking-wider pb-1 border-b border-red-200 flex justify-between">
+                                <span>II. Penyaluran & Beban Operasional</span>
+                                <span id="act-total-expense-top" class="text-gray-800 font-bold">Rp 0</span>
+                            </h5>
+                            <div class="space-y-1.5 pt-2 text-xs" id="act-expense-breakdown"></div>
+                        </div>
+                        <div
+                            class="pt-3 border-t-2 border-gray-800 flex justify-between items-center text-sm font-bold">
+                            <span class="text-gray-900 uppercase">Surplus / (Defisit) Bersih Periode:</span>
+                            <span id="act-net-surplus" class="text-base font-extrabold text-primary">Rp 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Posisi Kas -->
+                <div id="subreport-position" class="hidden-view space-y-4">
+                    <div class="text-center pb-2">
+                        <h4 class="text-base font-bold text-gray-800 uppercase tracking-wide">LAPORAN POSISI KAS & BANK
+                        </h4>
+                        <p class="text-xs text-gray-500">Kondisi Saldo Aset Kas Terkini</p>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+                        <table class="w-full text-left text-xs table-print">
+                            <thead class="bg-gray-100 text-gray-700 font-semibold border-b border-gray-200">
+                                <tr>
+                                    <th class="py-2.5 px-3 text-center w-8">No</th>
+                                    <th class="py-2.5 px-3">Nama Akun / Rekening Bank</th>
+                                    <th class="py-2.5 px-3 text-right">Saldo Terkini (Rp)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="position-table-body" class="divide-y divide-gray-100 text-gray-700"></tbody>
+                            <tfoot class="bg-gray-50 font-bold text-gray-900 border-t-2 border-gray-300">
+                                <tr>
+                                    <td colspan="2" class="py-2.5 px-3 text-right uppercase">Total Aset Kas & Setara
+                                        Kas:</td>
+                                    <td class="py-2.5 px-3 text-right text-primary text-sm" id="position-total-balance">
+                                        Rp 0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tanda Tangan (Print) -->
+                <div class="print-only pt-10 mt-6 border-t border-gray-300">
+                    <div class="flex justify-between text-xs text-center">
+                        <div class="w-48">
+                            <p>Mengetahui,</p>
+                            <p class="font-bold">Ketua Yayasan</p>
+                            <div class="h-16"></div>
+                            <p class="font-bold underline" id="print-sign-chairman">H. Ahmad Fauzi, S.Pd.I</p>
+                        </div>
+                        <div class="w-48">
+                            <p id="print-sign-place-date">Jakarta, 15 September 2026</p>
+                            <p class="font-bold">Bendahara Yayasan</p>
+                            <div class="h-16"></div>
+                            <p class="font-bold underline" id="print-sign-treasurer">Hj. Siti Rahmah, S.E.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: PROFIL -->
+            <div id="view-profile" class="hidden-view space-y-5">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800">Profil & Pengaturan Yayasan</h3>
+                    <p class="text-xs text-gray-400">Atur kop surat, pejabat penandatangan, dan kelola cadangan data</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                    <h4 class="text-sm font-bold text-gray-800 border-b border-gray-100 pb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-building-columns text-primary"></i> Identitas Lembaga
+                    </h4>
+                    <form id="profile-form" onsubmit="window.App.saveProfile(event)" class="space-y-3 text-xs">
+                        <div>
+                            <label class="block font-semibold text-gray-600 mb-1">Nama Yayasan</label>
+                            <input type="text" id="prof-name" required
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-600 mb-1">Deskripsi / Sub-judul Kop</label>
+                            <input type="text" id="prof-subtitle"
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block font-semibold text-gray-600 mb-1">No. SK Kemenkumham / Izin</label>
+                                <input type="text" id="prof-sk"
+                                    class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                            </div>
+                            <div>
+                                <label class="block font-semibold text-gray-600 mb-1">Kota / Domisili</label>
+                                <input type="text" id="prof-city"
+                                    class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-600 mb-1">Alamat Lengkap</label>
+                            <input type="text" id="prof-address"
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block font-semibold text-gray-600 mb-1">Nama Ketua Yayasan</label>
+                                <input type="text" id="prof-chairman" required
+                                    class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                            </div>
+                            <div>
+                                <label class="block font-semibold text-gray-600 mb-1">Nama Bendahara Yayasan</label>
+                                <input type="text" id="prof-treasurer" required
+                                    class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-600 mb-1">
+                                PIN Akses Pengelola / Admin (6 Digit Angka) <span class="text-emerald-600">*</span>
+                            </label>
+                            <input type="password" id="prof-admin-pin" maxlength="6" pattern="[0-9]{6}" required
+                                placeholder="123456"
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-mono tracking-widest focus:outline-none focus:border-primary">
+                            <p class="text-[10px] text-gray-400 mt-1">Digunakan untuk masuk ke Mode Pengelola.</p>
+                        </div>
+                        <button type="submit"
+                            class="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-2.5 rounded-xl transition shadow-sm">
+                            Simpan Perubahan Profil & PIN
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Master Data -->
+                <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                    <div class="flex justify-between items-start border-b border-gray-100 pb-3">
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fa-solid fa-layer-group text-primary"></i> Kelola Master Data
+                            </h4>
+                            <p class="text-xs text-gray-400 mt-0.5">Kelola akun kas/bank, kategori penerimaan, dan beban
+                                yayasan</p>
+                        </div>
+                    </div>
+                    <div class="flex bg-gray-100 p-1 rounded-xl text-xs font-semibold text-gray-500">
+                        <button type="button" onclick="window.App.switchMasterTab('accounts')"
+                            id="btn-master-tab-accounts"
+                            class="flex-1 py-1.5 rounded-lg bg-white text-gray-800 shadow-sm transition">
+                            Akun Kas/Bank (<span id="master-count-accounts">0</span>)
+                        </button>
+                        <button type="button" onclick="window.App.switchMasterTab('income')" id="btn-master-tab-income"
+                            class="flex-1 py-1.5 rounded-lg transition text-gray-500 hover:text-gray-800">
+                            Pemasukan (<span id="master-count-income">0</span>)
+                        </button>
+                        <button type="button" onclick="window.App.switchMasterTab('expense')"
+                            id="btn-master-tab-expense"
+                            class="flex-1 py-1.5 rounded-lg transition text-gray-500 hover:text-gray-800">
+                            Pengeluaran (<span id="master-count-expense">0</span>)
+                        </button>
+                    </div>
+
+                    <div id="panel-master-accounts" class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-semibold text-gray-600">Daftar Rekening & Kas:</span>
+                                <button type="button" onclick="window.App.openAddAccountModal()" 
+                                    class="admin-only bg-emerald-50 hover:bg-emerald-100 text-primary border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                                <i class="fa-solid fa-plus text-[11px]"></i> Tambah Akun
+                            </button>
+                        </div>
+                        <div id="master-accounts-list" class="space-y-2"></div>
+                    </div>
+                    <div id="panel-master-income" class="hidden-view space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-semibold text-gray-600">Daftar Kategori Pemasukan:</span>
+                            <button type="button" onclick="window.App.openAddCategoryModal('income')"
+                                class="bg-emerald-50 hover:bg-emerald-100 text-primary border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                                <i class="fa-solid fa-plus text-[11px]"></i> Tambah Kategori
+                            </button>
+                        </div>
+                        <div id="master-income-list" class="space-y-2"></div>
+                    </div>
+                    <div id="panel-master-expense" class="hidden-view space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-semibold text-gray-600">Daftar Kategori Pengeluaran:</span>
+                            <button type="button" onclick="window.App.openAddCategoryModal('expense')"
+                                class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                                <i class="fa-solid fa-plus text-[11px]"></i> Tambah Kategori
+                            </button>
+                        </div>
+                        <div id="master-expense-list" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- Supabase Config -->
+                <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                    <div class="flex justify-between items-start border-b border-gray-100 pb-3">
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fa-solid fa-cloud text-primary"></i> Database Cloud (Supabase)
+                            </h4>
+                            <p class="text-xs text-gray-400 mt-0.5">Penyimpanan online terpusat, realtime, dan gratis
+                                untuk multi-perangkat</p>
+                        </div>
+                        <span id="supabase-status-badge"
+                            class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-gray-400" id="sb-badge-dot"></span>
+                            <span id="sb-badge-text">Belum Terhubung</span>
+                        </span>
+                    </div>
+                    <form id="supabase-config-form" onsubmit="window.App.handleSaveSupabaseConfig(event)"
+                        class="space-y-3 text-xs">
+                        <div>
+                            <label class="block font-semibold text-gray-600 mb-1">Supabase Project URL <span
+                                    class="text-red-500">*</span></label>
+                            <input type="url" id="sb-url" placeholder="https://xxxxxxxxxxxxxxxxxxxx.supabase.co"
+                                value="https://btspaqkvpwcdcpbebbvl.supabase.co" required
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-600 mb-1">Supabase Anon Public Key (API Key)
+                                <span class="text-red-500">*</span></label>
+                            <input type="password" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0c3BhcWt2cHdjZGNwYmViYnZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0Mzg2NDgsImV4cCI6MjEwNTAxNDY0OH0.KgN70vxsB0LhpW5wwszI9g-jXexyqzaay-ZbzW5cyVk"
+                                required
+                                class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-primary">
+                            <p class="text-[10px] text-gray-400 mt-1">Dapatkan URL & Anon Key di dasbor Supabase pada
+                                menu <b>Project Settings > API</b>.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2 pt-1">
+                            <button type="submit" id="btn-save-sb"
+                                class="flex-1 min-w-[140px] bg-primary hover:bg-primary-dark text-white font-semibold py-2.5 px-3 rounded-xl transition shadow-sm flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-link text-xs"></i> Simpan & Hubungkan
+                            </button>
+                            <button type="button" onclick="window.App.testCurrentSupabase()" id="btn-test-sb"
+                                class="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-plug-circle-check text-xs"></i> Tes
+                            </button>
+                            <button type="button" onclick="window.App.disconnectSupabase()" id="btn-disconnect-sb"
+                                class="hidden py-2.5 px-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-semibold rounded-xl transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-link-slash text-xs"></i> Putuskan
+                            </button>
+                        </div>
+                    </form>
+                    <div id="supabase-actions-panel" class="hidden pt-3 border-t border-gray-100 space-y-2">
+                        <p class="text-xs font-semibold text-gray-700">Aksi Data Cloud:</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button type="button" onclick="window.App.syncFromSupabase(true)"
+                            class="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-primary border border-emerald-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> Tarik Data dari Cloud
+                            </button>
+                            <button type="button" onclick="window.App.migrateLocalDataToSupabase()"
+                            class="p-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Unggah Data Lokal ke Cloud
+                            </button>
+                            <!-- ✅ TOMBOL BARU -->
+                            <button type="button" onclick="window.App.seedExampleDataToCloud()"
+                            class="sm:col-span-2 p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Isi Cloud dengan Data Contoh Bawaan
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-gray-400 pt-1 italic">
+                            💡 <b>Tarik Data</b>: ambil data cloud ke perangkat ini. <b>Unggah Data Lokal</b>: kirim data perangkat ini ke cloud (menimpa). <b>Data Contoh</b>: isi cloud dengan data demo untuk memulai.
+                        </p>
+                    </div>
+                    <div class="pt-2 border-t border-gray-100">
+                        <details class="group cursor-pointer">
+                            <summary
+                                class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center justify-between py-1">
+                                <span class="flex items-center gap-1.5">
+                                    <i class="fa-solid fa-circle-question text-emerald-500"></i> Panduan Query SQL Tabel
+                                    Supabase
+                                </span>
+                                <i
+                                    class="fa-solid fa-chevron-down text-[10px] group-open:rotate-180 transition-transform"></i>
+                            </summary>
+                            <div
+                                class="mt-2 p-3 bg-slate-900 text-slate-100 rounded-xl text-[11px] font-mono overflow-x-auto space-y-2">
+                                <div
+                                    class="flex justify-between items-center text-[10px] text-slate-400 pb-1 border-b border-slate-800">
+                                    <span>Salin & jalankan di Supabase > SQL Editor:</span>
+                                    <button type="button" onclick="window.App.copySupabaseSql()"
+                                        class="bg-slate-800 hover:bg-slate-700 text-white px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
+                                        <i class="fa-solid fa-copy"></i> Salin SQL
+                                    </button>
+                                </div>
+                                <pre id="supabase-sql-code" class="whitespace-pre overflow-x-auto">create table if not exists transactions (
+                                    id bigint primary key,
+                                    date text not null,
+                                    type text not null check (type in ('income', 'expense')),
+                                    amount numeric not null,
+                                    account text not null,
+                                    category text not null,
+                                    "desc" text not null,
+                                    ref text default '',
+                                    person text default '',
+                                    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+                                );
+                                create table if not exists profile (
+                                    id text primary key default 'main',
+                                    name text not null,
+                                    subtitle text default '',
+                                    sk_number text default '',
+                                    address text default '',
+                                    city text default '',
+                                    phone text default '',
+                                    email text default '',
+                                    chairman text default '',
+                                    treasurer text default '',
+                                    admin_pin text default '123456',
+                                    updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+                                );
+                                create table if not exists accounts (
+                                    id text primary key,
+                                    name text not null,
+                                    type text not null check (type in ('cash', 'bank')),
+                                    icon text default 'fa-building-columns',
+                                    color text default 'blue',
+                                    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+                                );
+                                create table if not exists categories (
+                                    id text primary key,
+                                    type text not null check (type in ('income', 'expense')),
+                                    name text not null,
+                                    icon text default 'fa-tag',
+                                    color text default 'text-emerald-500',
+                                    bg text default 'bg-emerald-50',
+                                    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+                                );
+                                create table if not exists users (
+                                    id text primary key,
+                                    username text unique not null,
+                                    password_hash text not null,
+                                    name text not null,
+                                    role text not null check (role in ('admin', 'jamaah')),
+                                    is_active boolean default true,
+                                    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+                                    last_login timestamp with time zone
+                                );
+                                alter table transactions enable row level security;
+                                alter table profile enable row level security;
+                                alter table accounts enable row level security;
+                                alter table categories enable row level security;
+                                alter table users enable row level security;
+                                create policy "Akses Penuh Anonim Transaksi" on transactions for all using (true) with check (true);
+                                create policy "Akses Penuh Anonim Profil" on profile for all using (true) with check (true);
+                                create policy "Akses Penuh Anonim Akun" on accounts for all using (true) with check (true);
+                                create policy "Akses Penuh Anonim Kategori" on categories for all using (true) with check (true);
+                                create policy "Akses Penuh Anonim Users" on users for all using (true) with check (true);</pre>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+
+                <!-- Backup/Restore -->
+                <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                    <h4 class="text-sm font-bold text-gray-800 border-b border-gray-100 pb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-database text-primary"></i> Cadangan & Pemulihan Data
+                    </h4>
+                    <p class="text-xs text-gray-500">Data keuangan tersimpan aman di peramban Anda. Buat file cadangan
+                        berkala.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        <button onclick="window.App.backupData()"
+                            class="p-3 bg-emerald-50 hover:bg-emerald-100 text-primary border border-emerald-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-download"></i> Unduh Cadangan (Backup JSON)
+                        </button>
+                        <label
+                            class="p-3 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition">
+                            <i class="fa-solid fa-upload"></i> Pulihkan Data (Restore JSON)
+                            <input type="file" id="restore-file-input" accept=".json"
+                                onchange="window.App.restoreData(event)" class="hidden">
+                        </label>
+                    </div>
+                    <div class="pt-3 border-t border-gray-100">
+                        <button onclick="window.App.confirmResetData()"
+                            class="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-rotate-left"></i> Reset ke Data Contoh Bawaan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Nav -->
+        <nav class="bottom-nav no-print">
+            <div class="flex justify-between items-center relative">
+                <button class="fab-button jamaah-disabled" onclick="window.App.openAddModal()" title="Catat Transaksi">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+                <button class="nav-btn flex flex-col items-center gap-1 text-primary w-14"
+                    onclick="window.App.switchTab('home')">
+                    <i class="fa-solid fa-house text-lg"></i>
+                    <span class="text-[10px] font-semibold">Beranda</span>
+                </button>
+                <button class="nav-btn flex flex-col items-center gap-1 text-gray-400 w-14 mr-8"
+                    onclick="window.App.switchTab('history')">
+                    <i class="fa-solid fa-receipt text-lg"></i>
+                    <span class="text-[10px] font-medium">Riwayat</span>
+                </button>
+                <button class="nav-btn flex flex-col items-center gap-1 text-gray-400 w-14 ml-8"
+                    onclick="window.App.switchTab('reports')">
+                    <i class="fa-solid fa-chart-pie text-lg"></i>
+                    <span class="text-[10px] font-medium">Laporan</span>
+                </button>
+                <button class="nav-btn flex flex-col items-center gap-1 text-gray-400 w-14 jamaah-disabled" onclick="window.App.switchTab('profile')">
+                    <i class="fa-regular fa-user text-lg"></i>
+                    <span class="text-[10px] font-medium">Profil</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- MODALS -->
+    <div id="add-modal"
+        class="fixed inset-0 bg-black/60 z-50 hidden-view flex flex-col justify-end sm:justify-center sm:items-center no-print">
+        <div class="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl p-6 transform transition-all max-h-[90vh] overflow-y-auto"
+            id="add-modal-content">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-base font-bold text-gray-800" id="tx-modal-title">Catat Transaksi Baru</h3>
+                <button onclick="window.App.closeAddModal()"
+                    class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <form id="add-form" onsubmit="window.App.handleFormSubmit(event)" class="space-y-4">
+                <input type="hidden" id="edit-tx-id" value="">
+                <div class="flex p-1 bg-gray-100 rounded-xl">
+                    <label class="flex-1 text-center cursor-pointer">
+                        <input type="radio" name="tx-type" value="income" class="peer sr-only" checked
+                            onchange="window.App.updateFormCategories()">
+                        <div
+                            class="py-2 text-xs font-bold rounded-lg text-gray-500 peer-checked:bg-white peer-checked:text-primary peer-checked:shadow-sm transition">
+                            <i class="fa-solid fa-arrow-down mr-1"></i> Pemasukan
+                        </div>
+                    </label>
+                    <label class="flex-1 text-center cursor-pointer">
+                        <input type="radio" name="tx-type" value="expense" class="peer sr-only"
+                            onchange="window.App.updateFormCategories()">
+                        <div
+                            class="py-2 text-xs font-bold rounded-lg text-gray-500 peer-checked:bg-white peer-checked:text-red-500 peer-checked:shadow-sm transition">
+                            <i class="fa-solid fa-arrow-up mr-1"></i> Pengeluaran
+                        </div>
+                    </label>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nominal (Rp) *</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">Rp</span>
+                        <input type="text" inputmode="numeric" id="input-amount" required placeholder="0"
+                            oninput="window.App.handleAmountInput(this)"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl pl-12 pr-4 py-2.5 text-base font-bold text-gray-900 focus:outline-none focus:border-primary">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal *</label>
+                        <input type="date" id="input-date" required
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">No. Bukti / Kuitansi</label>
+                        <input type="text" id="input-ref" placeholder="Cth: BKK-001"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Akun Kas / Bank *</label>
+                    <select id="input-account" required
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-gray-800 focus:outline-none focus:border-primary"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kategori *</label>
+                    <select id="input-category" required
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-gray-800 focus:outline-none focus:border-primary"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Keterangan / Uraian Transaksi
+                        *</label>
+                    <input type="text" id="input-desc" required placeholder="Cth: Donasi Program Santunan Anak Yatim"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Penyetor / Penerima (Opsional)</label>
+                    <input type="text" id="input-person" placeholder="Cth: Hamba Allah / Bpk. Fulan"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-primary">
+                </div>
+                <button type="submit" id="btn-save-tx"
+                    class="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-xl shadow-md shadow-primary/30 transition text-xs uppercase tracking-wide">
+                    Simpan Catatan Kas
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="account-modal"
+        class="fixed inset-0 bg-black/60 z-50 hidden-view flex flex-col justify-end sm:justify-center sm:items-center no-print">
+        <div class="bg-white w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl p-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-gray-800" id="acc-modal-title">Tambah Akun Kas / Bank</h3>
+                <button onclick="window.App.closeAccountModal()"
+                    class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <form id="account-form" onsubmit="window.App.saveAccount(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="edit-acc-id" value="">
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-1">Nama Akun / Rekening Bank *</label>
+                    <input type="text" id="input-acc-name" required placeholder="Cth: BSI Operasional"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-1">Jenis Akun</label>
+                    <select id="input-acc-type"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs">
+                        <option value="bank">Rekening Bank</option>
+                        <option value="cash">Kas Tunai / Brankas Fisik</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-1">Tema Warna Kartu</label>
+                    <select id="input-acc-color"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs">
+                        <option value="emerald">Hijau (Emerald)</option>
+                        <option value="teal">Toska (Teal)</option>
+                        <option value="blue">Biru (Blue)</option>
+                        <option value="indigo">Nila (Indigo)</option>
+                        <option value="violet">Ungu (Violet)</option>
+                        <option value="amber">Emas (Amber)</option>
+                    </select>
+                </div>
+                <button type="submit" id="btn-save-account"
+                    class="w-full bg-primary hover:bg-primary-dark text-white font-bold py-2.5 rounded-xl transition shadow-sm">Simpan
+                    Akun</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="category-modal"
+        class="fixed inset-0 bg-black/60 z-50 hidden-view flex flex-col justify-end sm:justify-center sm:items-center no-print">
+        <div class="bg-white w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl p-6 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-base font-bold text-gray-800" id="cat-modal-title">Tambah Kategori</h3>
+                <button onclick="window.App.closeCategoryModal()"
+                    class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <form id="category-form" onsubmit="window.App.saveCategory(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="edit-cat-id" value="">
+                <input type="hidden" id="edit-cat-type" value="income">
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-1" id="label-cat-type-name">Nama Kategori
+                        *</label>
+                    <input type="text" id="input-cat-name" required placeholder="Cth: Program Santunan"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-600 mb-1">Pilihan Ikon Kategori</label>
+                    <select id="input-cat-icon"
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs">
+                        <option value="fa-hand-holding-heart">Tangan Cinta (Donasi / Sosial)</option>
+                        <option value="fa-sack-dollar">Kantong Uang (Zakat / Pendapatan)</option>
+                        <option value="fa-coins">Koin / Infaq</option>
+                        <option value="fa-landmark">Gedung / Wakaf</option>
+                        <option value="fa-gift">Hadiah / Hibah</option>
+                        <option value="fa-people-roof">Santunan Yatim / Keluarga</option>
+                        <option value="fa-graduation-cap">Topi Sarjana (Pendidikan)</option>
+                        <option value="fa-bolt">Kilat (Listrik / Utilitas)</option>
+                        <option value="fa-user-tie">Staff / Gaji Pengurus</option>
+                        <option value="fa-trowel-bricks">Batu Bata (Pembangunan)</option>
+                        <option value="fa-truck-medical">Ambulans / Kesehatan</option>
+                        <option value="fa-box-archive">Lainnya / Umum</option>
+                    </select>
+                </div>
+                <button type="submit" id="btn-save-category"
+                    class="w-full bg-primary hover:bg-primary-dark text-white font-bold py-2.5 rounded-xl transition shadow-sm">Simpan
+                    Kategori</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="admin-login-modal"
+        class="fixed inset-0 bg-black/60 z-50 hidden-view flex items-center justify-center p-4 no-print">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-6 text-center space-y-4 shadow-2xl">
+            <div
+                class="w-14 h-14 rounded-2xl bg-emerald-100 text-primary flex items-center justify-center mx-auto text-2xl shadow-sm">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <div>
+                <h4 class="text-base font-bold text-gray-800">Masuk Mode Pengelola</h4>
+                <p class="text-xs text-gray-400 mt-1">Masukkan 6 digit PIN pengelola yayasan.</p>
+            </div>
+            <form onsubmit="window.App.handleAdminLoginSubmit(event)" class="space-y-3">
+                <div>
+                    <input type="password" id="input-login-pin" maxlength="6" pattern="[0-9]{6}" required
+                        placeholder="••••••" autofocus
+                        class="w-full text-center tracking-[0.4em] text-2xl font-bold bg-gray-50 border border-gray-200 rounded-2xl py-3 focus:outline-none focus:border-primary">
+                    <p class="text-[10px] text-gray-400 mt-1">PIN Bawaan: <b>123456</b></p>
+                </div>
+                <div class="flex gap-2 pt-1">
+                    <button type="button" onclick="window.App.closeAdminLoginModal()"
+                        class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-semibold text-gray-700">Batal</button>
+                    <button type="submit"
+                        class="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-semibold shadow-md shadow-primary/20">Masuk</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="delete-master-modal"
+        class="fixed inset-0 bg-black/60 z-50 hidden-view flex items-center justify-center p-4 no-print">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-5 text-center space-y-3">
+            <div
+                class="w-12 h-12 rounded-full bg-red-100 text-red-500 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h4 class="text-sm font-bold text-gray-800" id="del-master-title">Hapus Item?</h4>
+            <p class="text-xs text-gray-500" id="del-master-desc">Item yang dihapus tidak dapat dipulihkan.</p>
+            <div class="flex gap-2 pt-2">
+                <button onclick="window.App.closeDeleteMasterModal()"
+                    class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-semibold text-gray-700">Batal</button>
+                <button id="btn-confirm-del-master"
+                    class="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-semibold">Ya,
+                    Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal"
+        class="fixed inset-0 bg-black/60 z-50 hidden-view flex items-center justify-center p-4 no-print">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-5 text-center space-y-3">
+            <div
+                class="w-12 h-12 rounded-full bg-red-100 text-red-500 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <h4 class="text-sm font-bold text-gray-800">Hapus Transaksi?</h4>
+            <p class="text-xs text-gray-500">Tindakan ini tidak dapat dibatalkan. Saldo kas akan otomatis disesuaikan.
+            </p>
+            <div class="flex gap-2 pt-2">
+                <button onclick="window.App.closeConfirmModal()"
+                    class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-semibold text-gray-700">Batal</button>
+                <button id="btn-do-delete"
+                    class="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-semibold">Ya,
+                    Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"
+        class="fixed top-8 left-1/2 -translate-x-1/2 bg-gray-800/95 text-white px-4 py-2.5 rounded-full text-xs font-medium z-50 hidden-view shadow-lg flex items-center gap-2.5 backdrop-blur-sm no-print">
+        <i class="fa-solid fa-circle-check text-primary text-sm" id="toast-icon"></i>
+        <span id="toast-message">Berhasil</span>
+    </div>
+
+    <!-- MODAL: KONFIRMASI KELUAR APLIKASI -->
+    <div id="logout-modal" class="fixed inset-0 bg-black/60 z-50 hidden-view flex items-center justify-center p-4 no-print backdrop-blur-sm">
+    <div class="logout-modal-content bg-white w-full max-w-xs rounded-3xl p-6 text-center space-y-4 shadow-2xl border border-gray-100">
+        <div class="w-16 h-16 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto text-3xl shadow-sm border border-red-100">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        </div>
+        <div>
+        <h4 class="text-lg font-bold text-gray-800">Keluar dari Aplikasi?</h4>
+        <p class="text-xs text-gray-500 mt-1 leading-relaxed">Anda akan kembali ke halaman login. Pastikan semua data transaksi sudah tersimpan dengan baik.</p>
+        </div>
+        <div class="flex gap-3 pt-2">
+        <button onclick="window.App.closeLogoutModal()" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-semibold text-gray-700 transition">
+            Batal
+        </button>
+        <button onclick="window.App.confirmLogout()" class="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-red-500/30 transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-check"></i> Ya, Keluar
+        </button>
+        </div>
+    </div>
+    </div>
+
+    <!-- Entry Point -->
+    <script type="module" src="assets/js/app.js"></script>
+</body>
+
+</html>

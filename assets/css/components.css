@@ -1,0 +1,137 @@
+/* Bottom Navigation - sekarang di dalam flex column, tidak perlu absolute */
+.bottom-nav {
+  flex-shrink: 0;        /* ← KUNCI: nav tidak mengecil, selalu di bawah */
+  position: sticky;      /* ← tetap sticky untuk jaga-jaga */
+  bottom: 0;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid #f3f4f6;
+  padding: 0.625rem 1.5rem;
+  border-top-left-radius: 1.5rem;
+  border-top-right-radius: 1.5rem;
+  z-index: 40;
+}
+
+/* Glass effect tetap untuk elemen lain */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* FAB Button */
+.fab-button {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #047857);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 22px;
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.4);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 4px solid #ffffff;
+  z-index: 50;
+}
+.fab-button:hover { transform: translateX(-50%) scale(1.06); }
+.fab-button:active { transform: translateX(-50%) scale(0.95); }
+
+/* Toast Animation */
+@keyframes slideInUp {
+  from { transform: translate(-50%, 40px); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
+}
+.toast-animate { animation: slideInUp 0.25s ease-out forwards; }
+
+/* Print */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  .no-print, .fab-button, nav, header button,
+  #add-modal, #edit-modal, #account-modal,
+  #confirm-modal, #toast, .top-view-switcher,
+  #admin-login-modal, #delete-master-modal, #category-modal,
+  .top-bar-switcher {
+    display: none !important;
+  }
+  .app-shell, .phone-mode, .desktop-mode {
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  .scrollable-content {
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+  }
+  .print-only { display: block !important; }
+  .table-print {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  .table-print th, .table-print td {
+    border: 1px solid #333 !important;
+    padding: 6px 8px !important;
+    font-size: 11pt !important;
+  }
+  .table-print th {
+    background-color: #f3f4f6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+.print-only { display: none; }
+
+/* Role-based visibility */
+body.role-jamaah .admin-only { display: none !important; }
+body.role-admin  .jamaah-only { display: none !important; }
+
+/* ===== VALIDASI FORM SHAKE ===== */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+.shake {
+  animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  border-color: #ef4444 !important; /* Merah Tailwind (red-500) */
+  background-color: #fef2f2 !important; /* red-50 */
+}
+
+/* ===== MODAL KELUAR PROFESIONAL ===== */
+.logout-modal-content {
+  transform: scale(0.95);
+  opacity: 0;
+  transition: all 0.2s ease-out;
+}
+#logout-modal:not(.hidden-view) .logout-modal-content {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* ===== DISABLED STATE KHUSUS ROLE JAMAAH ===== */
+body.role-jamaah .jamaah-disabled {
+  opacity: 0.4 !important;
+  pointer-events: none !important; /* Mencegah semua klik/interaksi */
+  cursor: not-allowed !important;
+  filter: grayscale(100%) !important; /* Efek abu-abu agar terlihat nonaktif */
+  transition: all 0.3s ease !important;
+}
