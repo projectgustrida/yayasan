@@ -65,7 +65,6 @@ function renderMasterAccountsList() {
           </div>
         </div>
       </div>
-      // Contoh di renderMasterAccountsList:
       <div class="flex items-center gap-1.5">
         <button type="button" onclick="window.App.openEditAccountModal('${acc.id}')" title="Edit"
           class="admin-only w-7 h-7 rounded-lg text-gray-400 hover:text-primary hover:bg-emerald-50 transition flex items-center justify-center">
